@@ -1,0 +1,36 @@
+{
+  "name": "Custom Page Seed",
+  "version": "1.0.0",
+  "homepage": "https://github.com/bonitasoft",
+  "authors": [
+    "Pierrick Voulet <pierrick.voulet@bonitasoft.com>"
+  ],
+  "description": "Custom Page Seed",
+  "keywords": [
+    "bonitasoft",
+    "angularjs",
+    "custom-page",
+    "seed"
+  ],
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.3.1",
+    "angular": "~1.3.5",
+    "angular-bootstrap": "~0.12.0",
+    "angular-resource": "~1.3.5"
+  },
+  "devDependencies": {
+  },
+  "resolutions": {
+    "angular-bootstrap": "~0.11.0",
+    "angular": "~1.3.0"
+  }
+}

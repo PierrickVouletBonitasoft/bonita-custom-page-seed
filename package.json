@@ -4,6 +4,7 @@
   "description": "",
   "main": "gulpfile.js",
   "scripts": {
+    "start": "gulp dev",
     "dev": "gulp dev",
     "prebuild": "npm install",
     "build": "gulp default",

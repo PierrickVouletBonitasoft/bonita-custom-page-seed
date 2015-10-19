@@ -14,6 +14,7 @@ var rewriter = require('connect-modrewrite');
 var launch = require('gulp-open');
 
 /* build */
+var bower  = require('gulp-bower');
 var usemin = require('gulp-usemin');
 var htmlmin = require('gulp-htmlmin');
 var rev = require('gulp-rev');
@@ -38,6 +39,19 @@ var protractor = require('gulp-protractor').protractor;
 var pageContent = fs.readFileSync('src/page.properties', 'utf8');
 var customPageName = properties.parse(pageContent).name;
 var folderName = path.basename(__dirname);
+var bonitaTestingPort = '24718';
+
+
+var middlewares = [
+  rewriter([
+    '^/bonita/portal http://localhost:'+bonitaTestingPort+'/bonita/portal [P]',
+    '^/bonita/API http://localhost:'+bonitaTestingPort+'/bonita/API [P]',
+    '^/bonita/'+folderName+'/css/themeResource http://localhost:'+bonitaTestingPort+'/bonita/portal/themeResource [P]',
+    '^/bonita/'+folderName+' http://localhost:3000 [P]',
+    '^/bonita http://localhost:3000 [P]'
+  ])
+];
+
 
 var opt = {
   port: 3000,
@@ -63,13 +77,7 @@ function serve(configuration) {
     livereload: configuration.livereload,
     middleware: function () {
       return [
-        rewriter([
-          '^/bonita/portal http://localhost:8080/bonita/portal [P]',
-          '^/bonita/API http://localhost:8080/bonita/API [P]',
-          '^/bonita/' + folderName + '/css/themeResource http://localhost:8080/bonita/portal/themeResource [P]',
-          '^/bonita/' + folderName + ' http://localhost:3000 [P]',
-          '^/bonita http://localhost:3000 [P]'
-        ])
+        middlewares
       ];
     }
   });
@@ -97,6 +105,12 @@ gulp.task('html2js', function () {
     .pipe(gulp.dest('target/work'));
 });
 
+gulp.task('bower', function() {
+  return bower()
+    .pipe(plumber())
+    .pipe(gulp.dest('bower_components'));
+});
+
 /* usemin task */
 gulp.task('usemin', ['html2js'], function () {
   return gulp.src('src/index.html')
@@ -107,17 +121,32 @@ gulp.task('usemin', ['html2js'], function () {
 
 /** temp task to rename resource path after building dist */
 var replace = require('gulp-replace');
-gulp.task('repath', ['usemin'], function () {
+gulp.task('repath:html', ['usemin'], function () {
   return gulp.src('target/dist/index.html')
     .pipe(plumber())
-    .pipe(replace(/(src=["|']resources\/([^"']*\.js)["|'])/g, 'src="$2"'))
-    .pipe(replace(/(href=["|']resources\/([^"']*\.css)["|'])/g, 'href="$2"'))
+    .pipe(replace(/(src=["|']resources\/([^"']*\.js)["|'])/g, 'src="pageResource?page='+customPageName+'&location=$2"'))
+    .pipe(replace(/(href=["|']resources\/([^"']*\.css)["|'])/g, 'href="pageResource?page='+customPageName+'&location=$2"'))
     .pipe(gulp.dest('target/dist'));
 });
+
+gulp.task('repath:css', ['usemin'], function(){
+  return gulp.src('dist/resources/css/*.css')
+    .pipe(plumber())
+    .pipe(replace(/url\(["|']+\.\.\/([^\)]*)["|']+\)/g, 'url("pageResource?page='+customPageName+'&location=$1")'))
+    .pipe(gulp.dest('target/dist/resources/css/'));
+
+});
+
+gulp.task('repath',['repath:css', 'repath:html']);
 
 gulp.task('assets', function () {
   return gulp.src('src/page.properties')
     .pipe(gulp.dest('target/dist'));
+});
+
+gulp.task('assets:font',['clean'], function(){
+  return gulp.src('src/font/*')
+    .pipe(gulp.dest('target/dist/resources/font'));
 });
 
 /**
@@ -134,9 +163,14 @@ gulp.task('jshint', function () {
 /**
  * Server task
  */
-gulp.task('server', ['html2js'], function () {
-  serve({
-    livereload: true
+gulp.task('server', ['bower', 'html2js'], function() {
+  return connect.server({
+    root: ['src', '.'],
+    port: opt.port,
+    livereload: true,
+    middleware: function(){
+      return middlewares;
+    }
   });
 });
 
@@ -144,7 +178,7 @@ gulp.task('server', ['html2js'], function () {
  * Watch task
  * Launch a server with livereload
  */
-gulp.task('watch', ['server'], function () {
+gulp.task('watch', ['server', 'jshint'], function() {
   gulp
     .watch(['src/**/*.*'])
     .on('change', function () {
@@ -152,6 +186,8 @@ gulp.task('watch', ['server'], function () {
     });
 
   gulp.watch(['src/**/*.js', 'test/**/*.js'], ['jshint']);
+
+  gulp.watch(['src/**/*.html'], ['html2js']);
 
   gulp
     .watch(['src/index.html'])
@@ -175,7 +211,7 @@ gulp.task('open', ['server'], function () {
  * tdd testing
  * Watch for file changes and re-run tests on each change
  */
-gulp.task('tdd', function (done) {
+gulp.task('tdd', ['bower'], function (done) {
   karma.start({
     configFile: __dirname + '/karma.conf.js'
   }, done);
@@ -208,4 +244,7 @@ gulp.task('e2e', function (done) {
 gulp.task('default', function (done) {
   runSequence(['jshint', 'clean'], 'zip', done);
 });
-gulp.task('dev', ['server', 'watch', 'open', 'tdd']);
+
+//gulp.task('default', ['jshint', 'clean', 'assets:font', 'usemin', 'assets', 'repath']);
+gulp.task('dev', ['html2js', 'server', 'watch', 'open', 'tdd']);
+gulp.task('dev:local', ['html2js','server', 'watch', 'open']);
